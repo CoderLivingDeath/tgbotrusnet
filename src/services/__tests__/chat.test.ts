@@ -1,4 +1,4 @@
-import { startChat, sendMessage, endChat, banUser, isUserBanned } from "../chat";
+import { startChat, sendMessage, endChat, banUser, isUserBanned, getChatById, getChatsByUser, updateChat } from "../chat";
 
 describe("Chat Service", () => {
   describe("startChat", () => {
@@ -21,6 +21,46 @@ describe("Chat Service", () => {
 
       expect(chat.id).toBe(1);
       expect(chat.status).toBe("waiting");
+    });
+  });
+
+  describe("getChatById", () => {
+    it("should return existing chat", async () => {
+      const mockPool: any = {
+        query: async () => ({
+          rows: [{ id: 1, user_id: 123, status: "active" }],
+        }),
+      };
+
+      const chat = await getChatById(mockPool, 1);
+      expect(chat).not.toBe(null);
+      expect(chat?.id).toBe(1);
+    });
+
+    it("should return null for non-existing chat", async () => {
+      const mockPool: any = {
+        query: async () => ({ rows: [] }),
+      };
+
+      const chat = await getChatById(mockPool, 999);
+      expect(chat).toBe(null);
+    });
+  });
+
+  describe("getChatsByUser", () => {
+    it("should return user's chats", async () => {
+      const mockPool: any = {
+        query: async () => ({
+          rows: [
+            { id: 1, user_id: 123, status: "active" },
+            { id: 2, user_id: 123, status: "closed" },
+          ],
+        }),
+      };
+
+      const chats = await getChatsByUser(mockPool, 123);
+      expect(chats.length).toBe(2);
+      expect(chats[0].user_id).toBe(123);
     });
   });
 
@@ -93,6 +133,20 @@ describe("Chat Service", () => {
       const result = await isUserBanned(mockPool, 456);
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe("updateChat", () => {
+    it("should update existing chat", async () => {
+      const mockPool: any = {
+        query: async () => ({
+          rows: [{ id: 1, status: "active", category: "support" }],
+        }),
+      };
+
+      const chat = await updateChat(mockPool, 1, { status: "active", category: "support" });
+      expect(chat).not.toBe(null);
+      expect(chat?.status).toBe("active");
     });
   });
 });

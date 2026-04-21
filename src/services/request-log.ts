@@ -1,7 +1,10 @@
 import type { Pool } from "pg";
-import type { Logger } from "../services/logger.js";
-import type { RequestStatistics } from "../types/index.js";
+import type { Logger } from "../services/logger";
+import type { RequestStatistics } from "../types/index";
 
+/**
+ * Represents a pending request waiting for a response.
+ */
 export interface PendingRequest {
   user_id: number;
   text: string;
@@ -11,6 +14,14 @@ export interface PendingRequest {
 
 const pendingRequests = new Map<number, PendingRequest>();
 
+/**
+ * Logs a user request to the database.
+ * @param pool - PostgreSQL connection pool
+ * @param userId - The user's ID
+ * @param message - The message text
+ * @param handler - The handler that processed the request (category)
+ * @param logger - Logger instance for debugging
+ */
 export async function logRequest(
   pool: Pool,
   userId: number,
@@ -39,6 +50,14 @@ export async function logRequest(
   }
 }
 
+/**
+ * Logs a response to complete a request entry.
+ * Updates the request log with result type and response time.
+ * @param pool - PostgreSQL connection pool
+ * @param userId - The user's ID
+ * @param resultType - The type of result (auto_response, escalation, error)
+ * @param logger - Logger instance for debugging
+ */
 export async function logResponse(
   pool: Pool,
   userId: number,
@@ -69,6 +88,12 @@ export async function logResponse(
   }
 }
 
+/**
+ * Retrieves request statistics for a given time period.
+ * @param pool - PostgreSQL connection pool
+ * @param days - Number of days to look back (default: 7)
+ * @returns RequestStatistics object with counts and average response time
+ */
 export async function getStatistics(
   pool: Pool,
   days: number = 7

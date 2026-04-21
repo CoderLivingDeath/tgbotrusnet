@@ -1,7 +1,12 @@
 import type { MiddlewareFn } from "telegraf";
-import type { BotContext } from "../context/bot-context.js";
-import { validateToken } from "../services/session.js";
+import type { BotContext } from "../context/bot-context";
+import { validateToken } from "../services/session";
 
+/**
+ * Creates middleware that validates admin authentication.
+ * Checks for valid admin session token.
+ * @returns Telegraf middleware function
+ */
 export function createAdminAuthMiddleware(): MiddlewareFn<BotContext> {
   return async (ctx, next) => {
     const token = ctx.session?.token;
@@ -28,6 +33,11 @@ export function createAdminAuthMiddleware(): MiddlewareFn<BotContext> {
   };
 }
 
+/**
+ * Creates middleware that validates operator authentication.
+ * Checks for valid operator session token.
+ * @returns Telegraf middleware function
+ */
 export function createOperatorAuthMiddleware(): MiddlewareFn<BotContext> {
   return async (ctx, next) => {
     const token = ctx.session?.token;

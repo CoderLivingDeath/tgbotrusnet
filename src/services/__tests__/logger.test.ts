@@ -1,3 +1,15 @@
+import { getEnvValue } from "../../utils/config-helper";
+
+jest.mock("../../utils/config-helper", () => ({
+  getEnvValue: (key: string): string | undefined => {
+    if (key === "LOG_LEVEL") return process.env.LOG_LEVEL;
+    if (key === "LOG_CONSOLE") return "true";
+    if (key === "LOG_FILE") return undefined;
+    if (key === "LOG_VERBOSE_FILE") return undefined;
+    return undefined;
+  },
+}));
+
 import { createLogger } from "../logger";
 
 describe("Logger Service", () => {

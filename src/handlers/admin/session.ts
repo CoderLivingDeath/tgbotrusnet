@@ -1,10 +1,15 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { createAdminAuthMiddleware } from "../../middleware/auth.js";
-import { createToken } from "../../services/session.js";
-import { loadConfig } from "../../config/index.js";
-import { addOperator, removeOperator, listOperators } from "../../services/chat.js";
+import type { BotContext } from "../../context/bot-context";
+import { createAdminAuthMiddleware } from "../../middleware/auth";
+import { createToken } from "../../services/session";
+import { loadConfig } from "../../config/index";
+import { addOperator, removeOperator, listOperators } from "../../services/chat";
 
+/**
+ * Simple hash function for password hashing.
+ * @param str - Input string to hash
+ * @returns Hashed string with prefix
+ */
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -15,10 +20,17 @@ function simpleHash(str: string): string {
   return "hash_" + Math.abs(hash).toString(36);
 }
 
+/**
+ * Admin session handler composer.
+ * Handles /admin login, /admin logout, /admin add-operator, /admin remove-operator, /admin list-operators commands.
+ */
 const adminComposer = new Composer<BotContext>();
 
-adminComposer.command("login", async (ctx) => {
-  const args = ctx.message.text.split(" ").slice(1);
+/**
+ * /admin login command - Authenticates an admin.
+ */
+adminComposer.command("admin login", async (ctx) => {
+  const args = ctx.message.text.split(" ").slice(2);
   const password = args[0];
 
   if (!password) {
@@ -46,20 +58,26 @@ adminComposer.command("login", async (ctx) => {
   await ctx.reply("Вы вошли как администратор");
 });
 
-adminComposer.command("logout", createAdminAuthMiddleware(), async (ctx) => {
+/**
+ * /admin logout command - Logs out the admin.
+ */
+adminComposer.command("admin logout", createAdminAuthMiddleware(), async (ctx) => {
   if (ctx.session?.token) {
     ctx.session = undefined;
     await ctx.reply("Вы вышли из системы");
   }
 });
 
+/**
+ * /admin add-operator command - Adds a new operator (admin only).
+ */
 adminComposer.command(
-  "add-operator",
+  "admin add-operator",
   createAdminAuthMiddleware(),
   async (ctx) => {
     const args = ctx.message.text.split(" ");
-    const userId = parseInt(args[1], 10);
-    const password = args[2];
+    const userId = parseInt(args[2], 10);
+    const password = args[3];
 
     if (isNaN(userId) || !password) {
       await ctx.reply("Использование: /admin add-operator <telegram_id> <пароль>");
@@ -84,12 +102,15 @@ adminComposer.command(
   }
 );
 
+/**
+ * /admin remove-operator command - Removes an operator (admin only).
+ */
 adminComposer.command(
-  "remove-operator",
+  "admin remove-operator",
   createAdminAuthMiddleware(),
   async (ctx) => {
     const args = ctx.message.text.split(" ");
-    const userId = parseInt(args[1], 10);
+    const userId = parseInt(args[2], 10);
 
     if (isNaN(userId)) {
       await ctx.reply("Использование: /admin remove-operator <telegram_id>");
@@ -113,7 +134,7 @@ adminComposer.command(
 );
 
 adminComposer.command(
-  "list-operators",
+  "admin list-operators",
   createAdminAuthMiddleware(),
   async (ctx) => {
     try {

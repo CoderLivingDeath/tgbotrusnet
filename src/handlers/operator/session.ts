@@ -1,12 +1,19 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { createToken } from "../../services/session.js";
-import { setOperatorStatus, getAvailableOperators } from "../../services/chat.js";
-import { loadConfig } from "../../config/index.js";
-import { Operator } from "../../types/index.js";
+import type { BotContext } from "../../context/bot-context";
+import { createToken } from "../../services/session";
+import { setOperatorStatus, getAvailableOperators } from "../../services/chat";
+import { loadConfig } from "../../config/index";
+import type { Operator } from "../../types/index";
 
+/**
+ * Operator session handler composer.
+ * Handles /login, /logout, /available, /busy commands.
+ */
 const operatorComposer = new Composer<BotContext>();
 
+/**
+ * /login command - Authenticates an operator.
+ */
 operatorComposer.command("login", async (ctx) => {
   const args = ctx.message.text.split(" ").slice(1);
   const password = args[0];
@@ -43,6 +50,9 @@ operatorComposer.command("login", async (ctx) => {
   await ctx.reply("Вы вошли как оператор");
 });
 
+/**
+ * /logout command - Logs out the operator.
+ */
 operatorComposer.command("logout", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация. Используйте /operator login <пароль>");
@@ -60,6 +70,9 @@ operatorComposer.command("logout", async (ctx) => {
   await ctx.reply("Вы вышли из системы");
 });
 
+/**
+ * /available command - Sets operator status to available.
+ */
 operatorComposer.command("available", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация");
@@ -75,6 +88,9 @@ operatorComposer.command("available", async (ctx) => {
   }
 });
 
+/**
+ * /busy command - Sets operator status to busy.
+ */
 operatorComposer.command("busy", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация");

@@ -4,6 +4,9 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { Pool } from 'pg';
 
+/**
+ * CLI arguments interface for bot startup options.
+ */
 export interface CLIArgs {
   host: string;
   port: number;
@@ -22,6 +25,11 @@ const DEFAULTS: CLIArgs = {
   verbose: false,
 };
 
+/**
+ * Parses command line arguments for the bot.
+ * @param args - Optional array of arguments (defaults to process.argv)
+ * @returns CLIArgs object with parsed values
+ */
 export function parseArgs(args: string[] = process.argv.slice(2)): CLIArgs {
   const hostIndex = args.indexOf('--host');
   const portIndex = args.indexOf('--port');
@@ -105,6 +113,15 @@ export function createProgram(): Command {
     .option('-d, --database <name>', 'Database name (creates if not exists)')
     .action(async (options) => {
       await initializeDatabase(options.schema, options.force, options.database);
+    });
+
+  prog
+    .command('admin:create')
+    .description('Create an admin user')
+    .option('-i, --telegram-id <id>', 'Telegram user ID')
+    .option('-p, --password <password>', 'Admin password')
+    .action(async (options) => {
+      await createAdmin(options.telegramId, options.password);
     });
 
   prog
@@ -527,6 +544,78 @@ function interactiveLogConfig(): void {
       );
     }
   );
+}
+
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return 'hash_' + Math.abs(hash).toString(36);
+}
+
+async function createAdmin(
+  telegramId?: string,
+  password?: string
+): Promise<void> {
+  const url = getEnvValue('DATABASE_URL');
+  if (!url) {
+    console.error('DATABASE_URL not set. Run "bot db:config --url <url>" first.');
+    process.exit(1);
+  }
+
+  const pool = new Pool({ connectionString: url });
+
+  try {
+    let userId: number;
+    let adminPassword: string;
+
+    if (telegramId && password) {
+      userId = parseInt(telegramId, 10);
+      adminPassword = password;
+    } else {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      const idAnswer = await new Promise<string>((resolve) => {
+        rl.question('Enter Telegram user ID: ', resolve);
+      });
+      userId = parseInt(idAnswer, 10);
+
+      const passAnswer = await new Promise<string>((resolve) => {
+        rl.question('Enter admin password: ', resolve);
+      });
+      adminPassword = passAnswer;
+
+      rl.close();
+    }
+
+    if (isNaN(userId) || userId <= 0) {
+      console.error('Invalid Telegram user ID');
+      process.exit(1);
+    }
+
+    const passwordHash = simpleHash(adminPassword);
+    await pool.query(
+      `INSERT INTO admins (user_id, password_hash) VALUES ($1, $2)`,
+      [userId, passwordHash]
+    );
+    console.log(`Admin created successfully for user ID: ${userId}`);
+  } catch (error) {
+    const err = error as Error & { code?: string };
+    if (err.message.includes('duplicate') || err.code === '23505') {
+      console.error('Admin already exists');
+    } else {
+      console.error('Failed to create admin:', err.message);
+    }
+    process.exit(1);
+  } finally {
+    await pool.end();
+  }
 }
 
 const args = process.argv.slice(2);

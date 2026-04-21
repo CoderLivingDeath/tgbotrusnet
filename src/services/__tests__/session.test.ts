@@ -1,4 +1,4 @@
-import { createToken, validateToken, revokeToken } from "../session";
+import { createToken, validateToken, revokeToken, getSession, createSession, updateSession, deleteSession } from "../session";
 
 describe("Session Service", () => {
   beforeEach(() => {
@@ -52,6 +52,58 @@ describe("Session Service", () => {
 
     it("should return false for non-existent token", () => {
       const result = revokeToken("admin-999-999999999");
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("getSession", () => {
+    it("should return existing session", () => {
+      const token = createToken("admin", 999, 24);
+      const session = getSession(999);
+      expect(session).not.toBe(null);
+      expect(session?.user_id).toBe(999);
+      expect(session?.type).toBe("admin");
+    });
+
+    it("should return null for non-existing session", () => {
+      const session = getSession(888888);
+      expect(session).toBe(null);
+    });
+  });
+
+  describe("createSession", () => {
+    it("should create new session", () => {
+      const session = createSession(777, "operator");
+      expect(session).not.toBe(null);
+      expect(session.user_id).toBe(777);
+      expect(session.type).toBe("operator");
+    });
+  });
+
+  describe("updateSession", () => {
+    it("should update existing session", () => {
+      createSession(666, "admin");
+      const updated = updateSession(666, { type: "operator" });
+      expect(updated).not.toBe(null);
+      expect(updated?.type).toBe("operator");
+    });
+
+    it("should return null for non-existing session", () => {
+      const updated = updateSession(555555, { type: "admin" });
+      expect(updated).toBe(null);
+    });
+  });
+
+  describe("deleteSession", () => {
+    it("should remove session", () => {
+      createSession(444, "admin");
+      const result = deleteSession(444);
+      expect(result).toBe(true);
+      expect(getSession(444)).toBe(null);
+    });
+
+    it("should return false for non-existing session", () => {
+      const result = deleteSession(333333);
       expect(result).toBe(false);
     });
   });

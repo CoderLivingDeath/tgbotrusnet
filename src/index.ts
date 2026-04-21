@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import 'reflect-metadata';
 import { Telegraf } from "telegraf";
 import pino from "pino";
 import { parseArgs, createProgram, type CLIArgs } from "./utils/cli.js";
@@ -18,6 +19,7 @@ import userFAQ from "./handlers/user/faq.js";
 import userSearch from "./handlers/user/search.js";
 import userChat from "./handlers/user/chat.js";
 import { loadConfig, validateConfig } from "./config/index.js";
+import { sceneMiddleware } from "./scenes/index.js";
 
 let logger: pino.Logger;
 let pool: DatabasePool;
@@ -41,6 +43,38 @@ async function main(args: CLIArgs): Promise<void> {
   bot = new Telegraf<BotContext>(config.botToken);
 
   bot.use(createContextMiddleware(logger, pool));
+  
+  bot.use(sceneMiddleware);
+
+  bot.command('scenes', async (ctx) => {
+    await ctx.reply('Доступные сцены:', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📚 FAQ', callback_data: 'enter_category' }],
+          [{ text: '💬 Поддержка', callback_data: 'enter_escalation' }],
+          [{ text: '💼 Панель оператора', callback_data: 'enter_operator' }],
+        ],
+      },
+    });
+  });
+
+  bot.action('enter_category', async (ctx) => {
+    await ctx.answerCbQuery();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((ctx as any).scene) await (ctx as any).scene.enter('category');
+  });
+
+  bot.action('enter_escalation', async (ctx) => {
+    await ctx.answerCbQuery();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((ctx as any).scene) await (ctx as any).scene.enter('escalation');
+  });
+
+  bot.action('enter_operator', async (ctx) => {
+    await ctx.answerCbQuery();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((ctx as any).scene) await (ctx as any).scene.enter('operator-chat');
+  });
   
   if (args.verbose) {
     bot.use(async (ctx, next) => {

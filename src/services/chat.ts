@@ -185,3 +185,61 @@ export async function listOperators(pool: Pool): Promise<Operator[]> {
   );
   return result.rows;
 }
+
+export async function addAdmin(
+  pool: Pool,
+  userId: number,
+  passwordHash: string
+): Promise<boolean> {
+  try {
+    await pool.query(
+      `INSERT INTO admins (user_id, password_hash) VALUES ($1, $2)`,
+      [userId, passwordHash]
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getChatsByUser(pool: Pool, userId: number): Promise<Chat[]> {
+  const result = await pool.query(
+    `SELECT id, user_id, operator_id, status, category, started_at, ended_at 
+     FROM chats WHERE user_id = $1 ORDER BY started_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function updateChat(
+  pool: Pool,
+  chatId: number,
+  updates: { status?: string; category?: string; operator_id?: number | null }
+): Promise<Chat | null> {
+  const fields: string[] = [];
+  const values: (string | number | null)[] = [];
+  let paramIndex = 1;
+
+  if (updates.status !== undefined) {
+    fields.push(`status = $${paramIndex++}`);
+    values.push(updates.status);
+  }
+  if (updates.category !== undefined) {
+    fields.push(`category = $${paramIndex++}`);
+    values.push(updates.category);
+  }
+  if (updates.operator_id !== undefined) {
+    fields.push(`operator_id = $${paramIndex++}`);
+    values.push(updates.operator_id);
+  }
+
+  if (fields.length === 0) return null;
+
+  values.push(chatId);
+  const result = await pool.query(
+    `UPDATE chats SET ${fields.join(", ")} WHERE id = $${paramIndex} 
+     RETURNING id, user_id, operator_id, status, category, started_at, ended_at`,
+    values
+  );
+  return result.rows[0] ?? null;
+}

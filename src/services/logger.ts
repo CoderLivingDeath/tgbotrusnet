@@ -1,11 +1,18 @@
 import pino, { DestinationStream } from "pino";
 import * as fs from "fs";
 import * as path from "path";
-import type { CLIArgs } from "../utils/cli.js";
-import { getEnvValue } from "../utils/config-helper.js";
+import type { CLIArgs } from "../utils/cli";
+import { getEnvValue } from "../utils/config-helper";
 
+/**
+ * Logger type alias for pino Logger instances.
+ */
 export type Logger = pino.Logger;
 
+/**
+ * Ensures the directory for the log file exists, creating it if necessary.
+ * @param logFilePath - The full path to the log file
+ */
 function ensureLogDir(logFilePath: string): void {
   const dir = path.dirname(logFilePath);
   if (!fs.existsSync(dir)) {
@@ -13,6 +20,11 @@ function ensureLogDir(logFilePath: string): void {
   }
 }
 
+/**
+ * Extracts log settings from CLI arguments and environment variables.
+ * @param config - CLI arguments configuration
+ * @returns Object containing log level, console enabled flag, file paths
+ */
 function getLogSettings(config: CLIArgs): {
   level: string;
   consoleEnabled: boolean;
@@ -32,6 +44,10 @@ function getLogSettings(config: CLIArgs): {
   return { level, consoleEnabled, filePath, verboseFilePath };
 }
 
+/**
+ * Creates a pretty-printed stream for console logging.
+ * @returns A promise that resolves to a pino DestinationStream
+ */
 async function createPrettyStream(): Promise<DestinationStream> {
   const pretty = (await import("pino-pretty")).default;
   return pretty({
@@ -41,6 +57,12 @@ async function createPrettyStream(): Promise<DestinationStream> {
   });
 }
 
+/**
+ * Creates and configures a logger instance based on CLI arguments and environment variables.
+ * Supports console output, file logging, and verbose (debug) logging.
+ * @param config - CLI arguments containing host, port, verbose, and other options
+ * @returns A configured pino Logger instance
+ */
 export async function createLogger(config: CLIArgs): Promise<Logger> {
   const { level, consoleEnabled, filePath, verboseFilePath } = getLogSettings(config);
 
@@ -101,6 +123,11 @@ export async function createLogger(config: CLIArgs): Promise<Logger> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let auditLoggerInstance: any = null;
 
+/**
+ * Creates or returns a singleton audit logger instance.
+ * The audit logger writes to LOG_AUDIT_FILE and uses a custom "audit" log level.
+ * @returns A pino Logger instance with audit level, or null if LOG_AUDIT_FILE is not set
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAuditLogger(): any {
   const auditFilePath = getEnvValue("LOG_AUDIT_FILE");
@@ -129,6 +156,12 @@ export function createAuditLogger(): any {
   return auditLoggerInstance;
 }
 
+/**
+ * Logs a user action to the audit logger if configured.
+ * @param action - The action name (e.g., "user_login", "chat_started")
+ * @param userId - The ID of the user performing the action
+ * @param metadata - Optional additional metadata to log with the action
+ */
 export function logUserAction(
   action: string,
   userId: number,

@@ -1,12 +1,22 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { createAdminAuthMiddleware } from "../../middleware/auth.js";
-import { getStatistics } from "../../services/request-log.js";
+import type { BotContext } from "../../context/bot-context";
+import { createAdminAuthMiddleware } from "../../middleware/auth";
+import { getStatistics } from "../../services/request-log";
 
+/**
+ * Operator stats handler composer.
+ * Handles /stats command for viewing request statistics.
+ */
 const operatorComposer = new Composer<BotContext>();
 
+/**
+ * Admin authorization middleware for stats access.
+ */
 operatorComposer.use(createAdminAuthMiddleware());
 
+/**
+ * /stats command - Shows request statistics.
+ */
 operatorComposer.command("stats", async (ctx) => {
   const args = ctx.message.text.split(" ");
   const days = parseInt(args[1], 10) || 7;

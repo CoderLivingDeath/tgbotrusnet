@@ -1,12 +1,22 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { createAdminAuthMiddleware } from "../../middleware/auth.js";
-import { createFAQ, deleteFAQ } from "../../services/faq.js";
+import type { BotContext } from "../../context/bot-context";
+import { createAdminAuthMiddleware } from "../../middleware/auth";
+import { createFAQ, deleteFAQ } from "../../services/faq";
 
+/**
+ * Admin FAQ management handler composer.
+ * Handles /add-faq, /delete-faq commands (admin only).
+ */
 const adminComposer = new Composer<BotContext>();
 
+/**
+ * Admin authorization middleware for all commands.
+ */
 adminComposer.use(createAdminAuthMiddleware());
 
+/**
+ * /add-faq command - Creates a new FAQ entry.
+ */
 adminComposer.command("add-faq", async (ctx) => {
   const parts = ctx.message.text.split("|");
   const categoryId = parseInt(parts[1]?.trim(), 10);
@@ -29,6 +39,9 @@ adminComposer.command("add-faq", async (ctx) => {
   }
 });
 
+/**
+ * /delete-faq command - Deletes an FAQ entry.
+ */
 adminComposer.command("delete-faq", async (ctx) => {
   const args = ctx.message.text.split(" ").slice(1);
   const id = parseInt(args[0], 10);

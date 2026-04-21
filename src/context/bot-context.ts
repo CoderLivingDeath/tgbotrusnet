@@ -1,19 +1,19 @@
-import { Context, MiddlewareFn } from "telegraf";
-import type { Logger } from "../services/logger.js";
-import type { DatabasePool } from "../services/database.js";
+import { Context, MiddlewareFn } from 'telegraf';
+import type { Logger } from '../services/logger.js';
+import type { DatabasePool } from '../services/database.js';
 
 export interface BotContext extends Context {
   logger: Logger;
   db: DatabasePool;
   session?: {
-    type: "admin" | "operator";
+    type: 'admin' | 'operator';
     userId: number;
     token: string;
   };
   activeChat?: {
     chatId: number;
     operatorId: number | null;
-    status: "waiting" | "active" | "closed";
+    status: 'waiting' | 'active' | 'closed';
   };
 }
 

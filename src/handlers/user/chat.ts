@@ -1,11 +1,18 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { startChat, sendMessage, endChat, isUserBanned, getAvailableOperators, assignOperatorToChat } from "../../services/chat.js";
-import { logRequest } from "../../services/request-log.js";
-import { logUserAction } from "../../services/logger.js";
+import type { BotContext } from "../../context/bot-context";
+import { startChat, sendMessage, endChat, isUserBanned, getAvailableOperators, assignOperatorToChat } from "../../services/chat";
+import { logRequest } from "../../services/request-log";
+import { logUserAction } from "../../services/logger";
 
+/**
+ * User chat handler composer.
+ * Handles /support, /end commands and chat message routing.
+ */
 const userComposer = new Composer<BotContext>();
 
+/**
+ * /support command - Starts a support chat with an operator.
+ */
 userComposer.command("support", async (ctx) => {
   const userId = ctx.from!.id;
   logUserAction("command_support", userId);
@@ -56,6 +63,9 @@ userComposer.command("support", async (ctx) => {
   }
 });
 
+/**
+ * /end command - Ends the current support chat.
+ */
 userComposer.command("end", async (ctx) => {
   if (!ctx.activeChat?.chatId) {
     await ctx.reply("Нет активного чата. Используйте /support для начала чата.");
@@ -78,6 +88,9 @@ userComposer.command("end", async (ctx) => {
   }
 });
 
+/**
+ * Message handler - Sends user messages to the operator in the active chat.
+ */
 userComposer.on("message", async (ctx) => {
   if (!ctx.activeChat?.chatId || !("text" in ctx.message)) {
     return;
