@@ -3,6 +3,19 @@ import { parseArgs, showHelp, type CLIArgs } from "./utils/cli.js";
 import { createLogger, type Logger } from "./services/logger.js";
 import { createDatabasePool, closeDatabasePool, type DatabasePool } from "./services/database.js";
 import { createContextMiddleware, type BotContext } from "./context/bot-context.js";
+import { createErrorHandlerMiddleware, createUnknownCommandMiddleware } from "./middleware/error-handler.js";
+import { initializeSchema } from "./services/schema.js";
+import adminSession from "./handlers/admin/session.js";
+import adminFAQ from "./handlers/admin/faq.js";
+import adminFAQManage from "./handlers/admin/faq-manage.js";
+import adminStats from "./handlers/admin/stats.js";
+import operatorSession from "./handlers/operator/session.js";
+import operatorChat from "./handlers/operator/chat.js";
+import operatorStats from "./handlers/operator/stats.js";
+import userFAQ from "./handlers/user/faq.js";
+import userSearch from "./handlers/user/search.js";
+import userChat from "./handlers/user/chat.js";
+import { loadConfig, validateConfig } from "./config/index.js";
 
 let logger: Logger;
 let pool: DatabasePool;
@@ -17,17 +30,31 @@ async function main(args: CLIArgs): Promise<void> {
   logger = createLogger(args);
   logger.info({ args }, "Starting bot with configuration");
 
+  const config = loadConfig();
+  validateConfig(config);
+
   pool = createDatabasePool(logger);
-  bot = new Telegraf<BotContext>(process.env.BOT_TOKEN ?? "");
+  await initializeSchema(pool, logger);
+
+  bot = new Telegraf<BotContext>(config.botToken);
 
   bot.use(createContextMiddleware(logger, pool));
+  bot.use(createErrorHandlerMiddleware());
+  bot.use(createUnknownCommandMiddleware());
 
-  bot.command("start", (ctx) => {
-    ctx.reply("Bot is running!");
-  });
+  bot.use(adminSession);
+  bot.use(adminFAQ);
+  bot.use(adminFAQManage);
+  bot.use(adminStats);
+  bot.use(operatorSession);
+  bot.use(operatorChat);
+  bot.use(operatorStats);
+  bot.use(userFAQ);
+  bot.use(userSearch);
+  bot.use(userChat);
 
-  bot.on("message", (ctx) => {
-    ctx.logger.debug({ update: ctx.update }, "Received message");
+  bot.command("start", async (ctx) => {
+    await ctx.reply("👋 Бот запущен! Используйте /menu для выбора категории.");
   });
 
   const signalHandler = async (signal: string): Promise<void> => {

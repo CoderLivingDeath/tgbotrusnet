@@ -28,9 +28,11 @@ npm run format     # Run Prettier (auto-fix formatting)
 ### Single File Operations
 
 ```bash
-npx tsc src/specific-file.ts    # Compile single file
-npx eslint src/specific-file.ts # Lint single file
-npx prettier --write src/file.ts
+npx tsc src/specific-file.ts        # Compile single file
+npx eslint src/specific-file.ts     # Lint single file
+npx prettier --write src/file.ts    # Format single file
+npx jest src/path/to/test.test.ts   # Run single test file
+npx jest --testPathPattern=session  # Run tests matching pattern
 ```
 
 ## Code Style
@@ -153,14 +155,34 @@ async function fetchUser(id: string): Promise<User | null> {
 - Provide `.env.example` with placeholder values
 - Reference via `process.env.VARIABLE_NAME`
 
+### Database (pg)
+
+```typescript
+import db from './services/database';
+
+async function getUser(id: string): Promise<User | null> {
+  const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+  return result.rows[0] || null;
+}
+```
+
+### Logging (pino)
+
+```typescript
+import { logger } from './services/logger';
+
+logger.info('User connected', { userId: ctx.from?.id });
+logger.error('Operation failed', { error, userId });
+```
+
 ### Testing
 
 ```bash
-npm test        # Run Jest tests
+npm test              # Run all tests
 npm run test:watch  # Run tests in watch mode
 ```
 
-Note: Requires `@types/jest` package. Install with `npm i -D @types/jest` if missing.
+Note: Tests are in `src/**/__tests__/**/*.test.ts` or `src/**/*.test.ts`.
 
 ### Comments
 
@@ -184,13 +206,18 @@ Note: Requires `@types/jest` package. Install with `npm i -D @types/jest` if mis
 
 ```
 src/
-  index.ts          # Entry point (bot initialization)
-  commands/        # Bot command handlers
-  middleware/      # Custom middleware
-  handlers/        # Message handlers
-  utils/           # Helper functions
-  types/           # TypeScript types
-  services/        # External service integrations
+├── index.ts                  # Bot entry point
+├── config/index.ts           # Config loader
+├── context/bot-context.ts    # Extended Telegraf context
+├── handlers/
+│   ├── admin/                # Admin command handlers
+│   ├── operator/             # Operator command handlers
+│   └── user/                 # User command handlers
+├── knowledge-base/           # FAQ content (markdown)
+├── middleware/               # Auth, error handling
+├── services/                 # DB, sessions, chat, FAQ, logging
+├── types/index.ts            # TypeScript interfaces
+└── utils/                   # CLI utilities
 ```
 
 One primary export per file, re-export from index.ts.
