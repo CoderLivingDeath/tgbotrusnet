@@ -133,6 +133,30 @@ function setEnvValue(key: string, value: string): void {
   writeEnvFile(config);
 }
 
+interface ParsedConnectionString {
+  user: string;
+  password: string;
+  host: string;
+  port: string;
+  database: string;
+}
+
+function parseConnectionString(url: string): ParsedConnectionString {
+  const match = url.match(
+    /^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/
+  );
+  if (!match) {
+    throw new Error(`Invalid connection string: ${url}`);
+  }
+  return {
+    user: match[1],
+    password: match[2],
+    host: match[3],
+    port: match[4],
+    database: match[5],
+  };
+}
+
 const program = new Command();
 
 program
@@ -182,8 +206,9 @@ program
   .description('Initialize database schema')
   .option('-s, --schema <file>', 'Custom SQL schema file')
   .option('-f, --force', 'Force reinitialize (drops existing tables)')
+  .option('-d, --database <name>', 'Database name (creates if not exists)')
   .action(async (options) => {
-    await initializeDatabase(options.schema, options.force);
+    await initializeDatabase(options.schema, options.force, options.database);
   });
 
 program
@@ -249,17 +274,43 @@ async function testDbConnection(): Promise<void> {
 
 async function initializeDatabase(
   schemaFile?: string,
-  force?: boolean
+  force?: boolean,
+  dbName?: string
 ): Promise<void> {
-  const url = getEnvValue('DATABASE_URL');
-  if (!url) {
+  const baseUrl = getEnvValue('DATABASE_URL');
+  if (!baseUrl) {
     console.error(
       'DATABASE_URL not set. Run "bot db:config --url <url>" first.'
     );
     process.exit(1);
   }
 
-  const pool = new Pool({ connectionString: url });
+  const parsedUrl = parseConnectionString(baseUrl);
+  const targetDbName = dbName || getEnvValue('DATABASE_NAME') || parsedUrl.database || 'postgres';
+
+  const adminUrl = `postgresql://${parsedUrl.user}:${parsedUrl.password}@${parsedUrl.host}:${parsedUrl.port}/postgres`;
+  const adminPool = new Pool({ connectionString: adminUrl });
+
+  interface DbError extends Error {
+  code?: string;
+}
+
+  try {
+    await adminPool.query(`CREATE DATABASE ${targetDbName}`);
+    console.log(`Database "${targetDbName}" created`);
+  } catch (e) {
+    const err = e as DbError;
+    if (!err.message.includes('already exists') && err.code !== '42P04') {
+      throw e;
+    }
+  }
+  await adminPool.end();
+
+  const targetUrl = `postgresql://${parsedUrl.user}:${parsedUrl.password}@${parsedUrl.host}:${parsedUrl.port}/${targetDbName}`;
+  setEnvValue('DATABASE_URL', targetUrl);
+  setEnvValue('DATABASE_NAME', targetDbName);
+
+  const pool = new Pool({ connectionString: targetUrl });
 
   try {
     const client = await pool.connect();
