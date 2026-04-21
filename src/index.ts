@@ -40,6 +40,25 @@ async function main(args: CLIArgs): Promise<void> {
   bot = new Telegraf<BotContext>(config.botToken);
 
   bot.use(createContextMiddleware(logger, pool));
+  
+  if (args.verbose) {
+    bot.use(async (ctx, next) => {
+      if (ctx.message && 'text' in ctx.message) {
+        logger.debug({ 
+          userId: ctx.from?.id, 
+          command: ctx.message.text 
+        }, 'User command received');
+      }
+      if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
+        logger.debug({ 
+          userId: ctx.from?.id, 
+          callbackData: ctx.callbackQuery.data 
+        }, 'Callback query received');
+      }
+      await next();
+    });
+  }
+  
   bot.use(createErrorHandlerMiddleware());
   bot.use(createUnknownCommandMiddleware());
 

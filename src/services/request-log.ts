@@ -14,26 +14,26 @@ const pendingRequests = new Map<number, PendingRequest>();
 export async function logRequest(
   pool: Pool,
   userId: number,
-  text: string,
-  category: string | null,
+  message: string,
+  handler: string | null,
   logger: Logger
 ): Promise<void> {
   const startedAt = new Date();
 
   pendingRequests.set(userId, {
     user_id: userId,
-    text,
-    category,
+    text: message,
+    category: handler,
     started_at: startedAt,
   });
 
   try {
     await pool.query(
-      `INSERT INTO request_logs (user_id, text, category, created_at) VALUES ($1, $2, $3, $4)`,
-      [userId, text, category, startedAt]
+      `INSERT INTO request_logs (user_id, message, handler, created_at) VALUES ($1, $2, $3, $4)`,
+      [userId, message, handler, startedAt]
     );
 
-    logger.debug({ userId, category }, "Request logged");
+    logger.debug({ userId, handler }, "Request logged");
   } catch (error) {
     logger.error({ error, userId }, "Failed to log request");
   }

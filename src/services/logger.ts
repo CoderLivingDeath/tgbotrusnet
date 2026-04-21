@@ -4,7 +4,11 @@ import type { CLIArgs } from "../utils/cli.js";
 export type Logger = pino.Logger;
 
 export function createLogger(config: CLIArgs): Logger {
-  const level = process.env.LOG_LEVEL ?? "info";
+  let level = process.env.LOG_LEVEL ?? "info";
+  
+  if (config.verbose) {
+    level = "debug";
+  }
 
   if (config.logPath) {
     return pino({

@@ -11,6 +11,7 @@ export interface CLIArgs {
   logPath: string | false;
   logPretty: boolean;
   help: boolean;
+  verbose: boolean;
 }
 
 const DEFAULTS: CLIArgs = {
@@ -19,6 +20,7 @@ const DEFAULTS: CLIArgs = {
   logPath: false,
   logPretty: true,
   help: false,
+  verbose: false,
 };
 
 export function parseArgs(args: string[] = process.argv.slice(2)): CLIArgs {
@@ -33,6 +35,7 @@ export function parseArgs(args: string[] = process.argv.slice(2)): CLIArgs {
         ? parsed['log-pretty'] !== 'false'
         : DEFAULTS.logPretty,
     help: parsed.help ?? DEFAULTS.help,
+    verbose: parsed.verbose ?? parsed.v ?? DEFAULTS.verbose,
   };
 }
 
@@ -48,6 +51,7 @@ Options:
   --port <number>        Port to bind to (default: 3000)
   --log-path <path>      Log file path (default: no file logging)
   --log-pretty <bool>   Enable pretty output (default: true)
+  -v, --verbose         Enable verbose logging (debug level)
   --help                Show this help message
 
 Database Commands:
