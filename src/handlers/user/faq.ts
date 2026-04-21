@@ -62,7 +62,7 @@ userComposer.on("callback_query", async (ctx) => {
 
     const questions = await getQuestionsByCategory(ctx.db, categoryId);
 
-    await logRequest(ctx.db, ctx.from!.id, category.name, category.name, ctx.logger);
+    await logRequest(ctx.db, ctx.from!.id, `category:${categoryId}`, category.name, ctx.logger);
 
     if (questions.length === 0) {
       await ctx.reply(`📁 ${category.name}\n\nВ этой категории пока нет вопросов.`);

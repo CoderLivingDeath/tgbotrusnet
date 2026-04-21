@@ -25,7 +25,7 @@ export function createLogger(config: CLIArgs): Logger {
     });
   }
 
-  if (config.logPretty) {
+  if (config.logPretty && process.platform !== 'win32') {
     return pino({
       level,
       transport: {

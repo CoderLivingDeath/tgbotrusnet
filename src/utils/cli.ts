@@ -60,12 +60,6 @@ Database Commands:
   bot db:init                    Initialize database
   bot db:init --force            Force reinitialize database
   bot db:init --schema <file>    Use custom schema file
-
-Logging Commands:
-  bot log:config --level <level>  Set log level (debug, info, warn, error)
-  bot log:config --pretty         Enable pretty print
-  bot log:config --no-pretty      Disable pretty print
-  bot log:config --show           Show current config
 `);
 }
 
