@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Telegraf } from "telegraf";
 import { parseArgs, showHelp, type CLIArgs } from "./utils/cli.js";
 import { createLogger, type Logger } from "./services/logger.js";
@@ -42,20 +43,21 @@ async function main(args: CLIArgs): Promise<void> {
   bot.use(createErrorHandlerMiddleware());
   bot.use(createUnknownCommandMiddleware());
 
-  bot.use(adminSession);
-  bot.use(adminFAQ);
-  bot.use(adminFAQManage);
-  bot.use(adminStats);
-  bot.use(operatorSession);
-  bot.use(operatorChat);
-  bot.use(operatorStats);
+  // User handlers first (public commands: /start, /menu, /search, /support, /end)
   bot.use(userFAQ);
   bot.use(userSearch);
   bot.use(userChat);
 
-  bot.command("start", async (ctx) => {
-    await ctx.reply("👋 Бот запущен! Используйте /menu для выбора категории.");
-  });
+  // Admin handlers (require auth)
+  bot.use(adminSession);
+  bot.use(adminFAQ);
+  bot.use(adminFAQManage);
+  bot.use(adminStats);
+
+  // Operator handlers (require auth)
+  bot.use(operatorSession);
+  bot.use(operatorChat);
+  bot.use(operatorStats);
 
   const signalHandler = async (signal: string): Promise<void> => {
     logger.info({ signal }, "Received shutdown signal");
@@ -68,8 +70,14 @@ async function main(args: CLIArgs): Promise<void> {
   process.on("SIGTERM", () => signalHandler("SIGTERM"));
 
   const { host, port } = args;
-  await bot.launch({ webhook: { domain: "", path: "", port, host } });
-  logger.info({ host, port }, "Bot launched");
+  
+  if (process.env.WEBHOOK_URL) {
+    await bot.launch({ webhook: { domain: process.env.WEBHOOK_URL, port, host } });
+  } else {
+    await bot.launch();
+  }
+  
+  logger.info({ mode: process.env.WEBHOOK_URL ? 'webhook' : 'long polling' }, "Bot launched");
 }
 
 const args = parseArgs();

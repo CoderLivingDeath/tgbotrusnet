@@ -75,12 +75,22 @@ INSERT INTO faq_categories (name, sort_order, is_default) VALUES
   ('Статус заявки', 2, TRUE),
   ('Общие вопросы', 3, TRUE),
   ('Связаться с оператором', 4, TRUE)
-ON CONFLICT DO NOTHING;
+ON CONFLICT DO NOTHING
 `;
 
 export async function initializeSchema(pool: Pool, logger: Logger): Promise<void> {
   try {
     logger.info("Initializing database schema...");
+
+    const tableCheck = await pool.query(`
+      SELECT COUNT(*) as count FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'faq_categories'
+    `);
+    
+    if (parseInt(tableCheck.rows[0].count, 10) > 0) {
+      logger.info("Database already initialized, skipping schema creation");
+      return;
+    }
 
     await pool.query(CREATE_TABLES);
     logger.info("Database tables created successfully");

@@ -19,6 +19,7 @@
   "type": "commonjs",
   "dependencies": {
     "commander": "^14.0.3",
+    "dotenv": "^17.4.2",
     "minimist": "^1.2.8",
     "pg": "^8.20.0",
     "pino": "^10.3.1",
