@@ -7,6 +7,7 @@ import {
   endChat,
   banUser,
 } from "../../services/chat.js";
+import { logUserAction } from "../../services/logger.js";
 
 const operatorComposer = new Composer<BotContext>();
 
@@ -126,6 +127,7 @@ operatorComposer.command("ban", async (ctx) => {
 
     if (banned) {
       ctx.logger.info({ userId, reason }, "User banned by operator");
+      logUserAction("ban_user", ctx.from!.id, { bannedUserId: userId, reason });
       await ctx.reply(`Пользователь ${userId} заблокирован`);
     } else {
       await ctx.reply("Ошибка при блокировке");

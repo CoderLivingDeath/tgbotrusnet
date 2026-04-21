@@ -1,8 +1,8 @@
 import { createLogger } from "../logger";
 
 describe("Logger Service", () => {
-  it("should create a logger with default configuration", () => {
-    const logger = createLogger({
+  it("should create a logger with default configuration", async () => {
+    const logger = await createLogger({
       host: "0.0.0.0",
       port: 3000,
       logPath: false,
@@ -15,11 +15,11 @@ describe("Logger Service", () => {
     expect(logger.level).toBe("info");
   });
 
-  it("should create a logger with custom level", () => {
+  it("should create a logger with custom level", async () => {
     const originalLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "debug";
 
-    const logger = createLogger({
+    const logger = await createLogger({
       host: "0.0.0.0",
       port: 3000,
       logPath: false,
@@ -37,8 +37,8 @@ describe("Logger Service", () => {
     }
   });
 
-  it("should create a logger with debug level when verbose is true", () => {
-    const logger = createLogger({
+  it("should create a logger with debug level when verbose is true", async () => {
+    const logger = await createLogger({
       host: "0.0.0.0",
       port: 3000,
       logPath: false,

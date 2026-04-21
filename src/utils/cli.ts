@@ -112,8 +112,9 @@ export function createProgram(): Command {
     .description('Configure logging settings')
     .option('-l, --level <level>', 'Log level (debug, info, warn, error)')
     .option('-p, --path <path>', 'Log file path')
-    .option('--pretty', 'Enable pretty print logging')
-    .option('--no-pretty', 'Disable pretty print logging')
+    .option('-c, --console <bool>', 'Enable console logging (true/false)')
+    .option('-a, --audit-file <path>', 'Audit log file path')
+    .option('-v, --verbose-file <path>', 'Verbose log file path')
     .option('-s, --show', 'Show current logging configuration')
     .action((options) => {
       if (options.show) {
@@ -134,16 +135,27 @@ export function createProgram(): Command {
       }
 
       if (options.path) {
-        setEnvValue('LOG_PATH', options.path);
-        console.log(`Log path set to: ${options.path}`);
+        setEnvValue('LOG_FILE', options.path);
+        console.log(`Log file set to: ${options.path}`);
       }
 
-      if (options.pretty !== undefined) {
-        setEnvValue('LOG_PRETTY', options.pretty ? 'true' : 'false');
-        console.log(`Pretty print ${options.pretty ? 'enabled' : 'disabled'}`);
+      if (options.console !== undefined) {
+        setEnvValue('LOG_CONSOLE', options.console === 'true' ? 'true' : 'false');
+        console.log(`Console logging ${options.console === 'true' ? 'enabled' : 'disabled'}`);
       }
 
-      if (!options.level && !options.path && options.pretty === undefined) {
+      if (options.auditFile) {
+        setEnvValue('LOG_AUDIT_FILE', options.auditFile);
+        console.log(`Audit log file set to: ${options.auditFile}`);
+      }
+
+      if (options.verboseFile) {
+        setEnvValue('LOG_VERBOSE_FILE', options.verboseFile);
+        console.log(`Verbose log file set to: ${options.verboseFile}`);
+      }
+
+      if (!options.level && !options.path && options.console === undefined && 
+          !options.auditFile && !options.verboseFile) {
         interactiveLogConfig();
       }
     });
@@ -431,23 +443,31 @@ async function initializeDatabase(
 
 function showLogConfig(): void {
   const level = getEnvValue('LOG_LEVEL') || 'info';
-  const pretty = getEnvValue('LOG_PRETTY') || 'true';
-  const path = getEnvValue('LOG_PATH') || '(none)';
+  const consoleEnabled = getEnvValue('LOG_CONSOLE') || 'true';
+  const file = getEnvValue('LOG_FILE') || '(none)';
+  const auditFile = getEnvValue('LOG_AUDIT_FILE') || '(none)';
+  const verboseFile = getEnvValue('LOG_VERBOSE_FILE') || '(none)';
   console.log('Current logging configuration:');
   console.log(`  LOG_LEVEL: ${level}`);
-  console.log(`  LOG_PATH: ${path}`);
-  console.log(`  LOG_PRETTY: ${pretty}`);
+  console.log(`  LOG_CONSOLE: ${consoleEnabled}`);
+  console.log(`  LOG_FILE: ${file}`);
+  console.log(`  LOG_AUDIT_FILE: ${auditFile}`);
+  console.log(`  LOG_VERBOSE_FILE: ${verboseFile}`);
 }
 
 function interactiveLogConfig(): void {
   const currentLevel = getEnvValue('LOG_LEVEL') || 'info';
-  const currentPretty = getEnvValue('LOG_PRETTY') || 'true';
-  const currentPath = getEnvValue('LOG_PATH') || '';
+  const currentConsole = getEnvValue('LOG_CONSOLE') || 'true';
+  const currentFile = getEnvValue('LOG_FILE') || '';
+  const currentAuditFile = getEnvValue('LOG_AUDIT_FILE') || '';
+  const currentVerboseFile = getEnvValue('LOG_VERBOSE_FILE') || '';
 
   console.log('Current settings:');
   console.log(`  Log level: ${currentLevel}`);
-  console.log(`  Log path: ${currentPath || '(none)'}`);
-  console.log(`  Pretty print: ${currentPretty}`);
+  console.log(`  Console logging: ${currentConsole}`);
+  console.log(`  Log file: ${currentFile || '(none)'}`);
+  console.log(`  Audit file: ${currentAuditFile || '(none)'}`);
+  console.log(`  Verbose file: ${currentVerboseFile || '(none)'}`);
   console.log('\nAvailable log levels: debug, info, warn, error');
 
   const rl = readline.createInterface({
@@ -465,22 +485,42 @@ function interactiveLogConfig(): void {
       }
 
       rl.question(
-        'Enter log file path (or press Enter to keep current): ',
-        (pathAnswer: string) => {
-          if (pathAnswer.trim()) {
-            setEnvValue('LOG_PATH', pathAnswer.trim());
-            console.log(`Log path set to: ${pathAnswer.trim()}`);
+        'Enable console logging? (y/n, or press Enter to keep current): ',
+        (consoleAnswer: string) => {
+          if (consoleAnswer.trim()) {
+            const consoleEnabled = consoleAnswer.toLowerCase().startsWith('y');
+            setEnvValue('LOG_CONSOLE', consoleEnabled ? 'true' : 'false');
+            console.log(`Console logging ${consoleEnabled ? 'enabled' : 'disabled'}`);
           }
 
           rl.question(
-            'Enable pretty print? (y/n, or press Enter to keep current): ',
-            (prettyAnswer: string) => {
-              rl.close();
-              if (prettyAnswer.trim()) {
-                const pretty = prettyAnswer.toLowerCase().startsWith('y');
-                setEnvValue('LOG_PRETTY', pretty ? 'true' : 'false');
-                console.log(`Pretty print ${pretty ? 'enabled' : 'disabled'}`);
+            'Enter log file path (or press Enter to keep current): ',
+            (fileAnswer: string) => {
+              if (fileAnswer.trim()) {
+                setEnvValue('LOG_FILE', fileAnswer.trim());
+                console.log(`Log file set to: ${fileAnswer.trim()}`);
               }
+
+              rl.question(
+                'Enter audit log file path (or press Enter to keep current): ',
+                (auditAnswer: string) => {
+                  if (auditAnswer.trim()) {
+                    setEnvValue('LOG_AUDIT_FILE', auditAnswer.trim());
+                    console.log(`Audit log file set to: ${auditAnswer.trim()}`);
+                  }
+
+                  rl.question(
+                    'Enter verbose log file path (or press Enter to keep current): ',
+                    (verboseAnswer: string) => {
+                      rl.close();
+                      if (verboseAnswer.trim()) {
+                        setEnvValue('LOG_VERBOSE_FILE', verboseAnswer.trim());
+                        console.log(`Verbose log file set to: ${verboseAnswer.trim()}`);
+                      }
+                    }
+                  );
+                }
+              );
             }
           );
         }

@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { Telegraf } from "telegraf";
+import pino from "pino";
 import { parseArgs, createProgram, type CLIArgs } from "./utils/cli.js";
-import { createLogger, type Logger } from "./services/logger.js";
+import { createLogger } from "./services/logger.js";
 import { createDatabasePool, closeDatabasePool, type DatabasePool } from "./services/database.js";
 import { createContextMiddleware, type BotContext } from "./context/bot-context.js";
 import { createErrorHandlerMiddleware, createUnknownCommandMiddleware } from "./middleware/error-handler.js";
@@ -18,7 +19,7 @@ import userSearch from "./handlers/user/search.js";
 import userChat from "./handlers/user/chat.js";
 import { loadConfig, validateConfig } from "./config/index.js";
 
-let logger: Logger;
+let logger: pino.Logger;
 let pool: DatabasePool;
 let bot: Telegraf<BotContext>;
 
@@ -28,7 +29,7 @@ async function main(args: CLIArgs): Promise<void> {
     process.exit(0);
   }
 
-  logger = createLogger(args);
+  logger = await createLogger(args);
   logger.info({ args }, "Starting bot with configuration");
 
   const config = loadConfig();

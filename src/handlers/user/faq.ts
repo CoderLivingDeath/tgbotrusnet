@@ -2,10 +2,13 @@ import { Composer } from "telegraf";
 import type { BotContext } from "../../context/bot-context.js";
 import { getCategories, getQuestionsByCategory, getFAQById } from "../../services/faq.js";
 import { logRequest } from "../../services/request-log.js";
+import { logUserAction } from "../../services/logger.js";
 
 const userComposer = new Composer<BotContext>();
 
 userComposer.command("start", async (ctx) => {
+  const userId = ctx.from!.id;
+  logUserAction("command_start", userId);
   const categories = await getCategories(ctx.db);
 
   const keyboard = categories.map((cat) => [
@@ -40,6 +43,7 @@ userComposer.command("menu", async (ctx) => {
 
 userComposer.on("callback_query", async (ctx) => {
   const query = ctx.callbackQuery;
+  const userId = ctx.from!.id;
 
   if (!("data" in query) || !query.data) {
     return;
@@ -56,18 +60,22 @@ userComposer.on("callback_query", async (ctx) => {
     const category = categories.find((c) => c.id === categoryId);
 
     if (!category) {
+      logUserAction("category_not_found", userId, { categoryId });
       await ctx.reply("Категория не найдена");
       return;
     }
 
     const questions = await getQuestionsByCategory(ctx.db, categoryId);
 
-    await logRequest(ctx.db, ctx.from!.id, `category:${categoryId}`, category.name, ctx.logger);
+    await logRequest(ctx.db, userId, `category:${categoryId}`, category.name, ctx.logger);
 
     if (questions.length === 0) {
+      logUserAction("category_empty", userId, { categoryId, categoryName: category.name });
       await ctx.reply(`📁 ${category.name}\n\nВ этой категории пока нет вопросов.`);
       return;
     }
+
+    logUserAction("category_view", userId, { categoryId, categoryName: category.name, questionsCount: questions.length });
 
     const keyboard = questions.map((q) => [
       {
@@ -91,9 +99,12 @@ userComposer.on("callback_query", async (ctx) => {
     const faq = await getFAQById(ctx.db, faqId);
 
     if (!faq) {
+      logUserAction("faq_not_found", userId, { faqId });
       await ctx.reply("Вопрос не найден");
       return;
     }
+
+    logUserAction("faq_view", userId, { faqId, question: faq.question.substring(0, 50) });
 
     await ctx.reply(
       `❓ ${faq.question}\n\n━━━━━━━━━━━━━━━━\n\n${faq.answer}`,

@@ -2,11 +2,13 @@ import { Composer } from "telegraf";
 import type { BotContext } from "../../context/bot-context.js";
 import { startChat, sendMessage, endChat, isUserBanned, getAvailableOperators, assignOperatorToChat } from "../../services/chat.js";
 import { logRequest } from "../../services/request-log.js";
+import { logUserAction } from "../../services/logger.js";
 
 const userComposer = new Composer<BotContext>();
 
 userComposer.command("support", async (ctx) => {
   const userId = ctx.from!.id;
+  logUserAction("command_support", userId);
 
   const banned = await isUserBanned(ctx.db, userId);
 
@@ -41,6 +43,7 @@ userComposer.command("support", async (ctx) => {
     };
 
     await logRequest(ctx.db, userId, "/support", "escalation", ctx.logger);
+    logUserAction("escalation", userId, { chatId: chat.id, operatorId: operators[0].id });
 
     if (assigned) {
       await ctx.reply("✅ Оператор подключен. Задайте ваш вопрос:");
