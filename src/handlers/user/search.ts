@@ -1,10 +1,18 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { searchFAQs } from "../../services/faq.js";
-import { logRequest } from "../../services/request-log.js";
+import type { BotContext } from "../../context/bot-context";
+import { searchFAQs } from "../../services/faq";
+import { logRequest } from "../../services/request-log";
+import { CB } from "../../constants/callbacks";
 
+/**
+ * User search handler composer.
+ * Handles /search command for FAQ keyword search.
+ */
 const userComposer = new Composer<BotContext>();
 
+/**
+ * /search command - Searches FAQs by keyword.
+ */
 userComposer.command("search", async (ctx) => {
   const args = ctx.message.text.split(" ").slice(1);
   const keyword = args.join(" ").trim();
@@ -34,7 +42,7 @@ userComposer.command("search", async (ctx) => {
   const keyboard = results.slice(0, 10).map((faq) => [
     {
       text: faq.question.substring(0, 50),
-      callback_data: `faq_${faq.id}`,
+      callback_data: `${CB.FAQ}${faq.id}`,
     },
   ]);
 

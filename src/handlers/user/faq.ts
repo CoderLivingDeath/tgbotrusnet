@@ -1,11 +1,19 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
-import { getCategories, getQuestionsByCategory, getFAQById } from "../../services/faq.js";
-import { logRequest } from "../../services/request-log.js";
-import { logUserAction } from "../../services/logger.js";
+import type { BotContext } from "../../context/bot-context";
+import { getCategories, getQuestionsByCategory, getFAQById } from "../../services/faq";
+import { logRequest } from "../../services/request-log";
+import { logUserAction } from "../../services/logger";
+import { CB } from "../../constants/callbacks";
 
+/**
+ * User FAQ handler composer.
+ * Handles /start, /menu commands and FAQ navigation via inline keyboards.
+ */
 const userComposer = new Composer<BotContext>();
 
+/**
+ * /start command - Shows welcome message and category menu.
+ */
 userComposer.command("start", async (ctx) => {
   const userId = ctx.from!.id;
   logUserAction("command_start", userId);
@@ -14,7 +22,7 @@ userComposer.command("start", async (ctx) => {
   const keyboard = categories.map((cat) => [
     {
       text: cat.name,
-      callback_data: `cat_${cat.id}`,
+      callback_data: `${CB.CAT}${cat.id}`,
     },
   ]);
 
@@ -26,13 +34,16 @@ userComposer.command("start", async (ctx) => {
   );
 });
 
+/**
+ * /menu command - Shows category menu.
+ */
 userComposer.command("menu", async (ctx) => {
   const categories = await getCategories(ctx.db);
 
   const keyboard = categories.map((cat) => [
     {
       text: cat.name,
-      callback_data: `cat_${cat.id}`,
+      callback_data: `${CB.CAT}${cat.id}`,
     },
   ]);
 
@@ -41,6 +52,10 @@ userComposer.command("menu", async (ctx) => {
   });
 });
 
+/**
+ * Callback query handler - Processes inline keyboard selections.
+ * Handles category navigation, FAQ viewing, and menu display.
+ */
 userComposer.on("callback_query", async (ctx) => {
   const query = ctx.callbackQuery;
   const userId = ctx.from!.id;
@@ -51,8 +66,8 @@ userComposer.on("callback_query", async (ctx) => {
 
   const data = query.data as string;
 
-  if (data.startsWith("cat_")) {
-    const categoryId = parseInt(data.substring(4), 10);
+  if (data.startsWith(CB.CAT)) {
+    const categoryId = parseInt(data.substring(CB.CAT.length), 10);
 
     await ctx.answerCbQuery();
 
@@ -80,7 +95,7 @@ userComposer.on("callback_query", async (ctx) => {
     const keyboard = questions.map((q) => [
       {
         text: q.question.substring(0, 60),
-        callback_data: `faq_${q.id}`,
+        callback_data: `${CB.FAQ}${q.id}`,
       },
     ]);
 
@@ -91,8 +106,8 @@ userComposer.on("callback_query", async (ctx) => {
     return;
   }
 
-  if (data.startsWith("faq_")) {
-    const faqId = parseInt(data.substring(4), 10);
+  if (data.startsWith(CB.FAQ)) {
+    const faqId = parseInt(data.substring(CB.FAQ.length), 10);
 
     await ctx.answerCbQuery();
 
@@ -111,7 +126,7 @@ userComposer.on("callback_query", async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🔙 К меню", callback_data: "menu" }],
+            [{ text: "🔙 К меню", callback_data: CB.MENU }],
           ],
         },
       }
@@ -127,7 +142,7 @@ userComposer.on("callback_query", async (ctx) => {
     const keyboard = categories.map((cat) => [
       {
         text: cat.name,
-        callback_data: `cat_${cat.id}`,
+        callback_data: `${CB.CAT}${cat.id}`,
       },
     ]);
 

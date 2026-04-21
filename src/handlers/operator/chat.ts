@@ -1,23 +1,38 @@
 import { Composer } from "telegraf";
-import type { BotContext } from "../../context/bot-context.js";
+import type { BotContext } from "../../context/bot-context";
 import {
   getActiveChatsForOperator,
   getChatHistory,
   sendMessage,
   endChat,
   banUser,
-} from "../../services/chat.js";
-import { logUserAction } from "../../services/logger.js";
+  getChatById,
+} from "../../services/chat";
+import { logUserAction } from "../../services/logger";
+import { CB } from "../../constants/callbacks";
 
+/**
+ * Operator chat handler composer.
+ * Handles /chats, /reply, /end, /ban commands for operators.
+ */
 const operatorComposer = new Composer<BotContext>();
 
+/**
+ * /chats command - Lists active chats for the operator.
+ */
 operatorComposer.command("chats", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация. Используйте /operator login");
     return;
   }
 
-  const chats = await getActiveChatsForOperator(ctx.db, ctx.session.userId);
+  const userId = ctx.session.userId;
+  if (!userId) {
+    await ctx.reply("Ошибка сессии");
+    return;
+  }
+
+  const chats = await getActiveChatsForOperator(ctx.db, userId);
 
   if (chats.length === 0) {
     await ctx.reply("Нет активных чатов");
@@ -27,7 +42,7 @@ operatorComposer.command("chats", async (ctx) => {
   const keyboard = chats.map((chat) => [
     {
       text: `Чат #${chat.id} (${chat.status})`,
-      callback_data: `chat_${chat.id}`,
+      callback_data: `${CB.CHAT}${chat.id}`,
     },
   ]);
 
@@ -36,6 +51,9 @@ operatorComposer.command("chats", async (ctx) => {
   });
 });
 
+/**
+ * /reply command - Sends a reply to a user's chat.
+ */
 operatorComposer.command("reply", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация");
@@ -61,7 +79,6 @@ operatorComposer.command("reply", async (ctx) => {
 
     await sendMessage(ctx.db, chatId, "operator", message);
 
-    const { getChatById } = await import("../../services/chat.js");
     const chatInfo = await getChatById(ctx.db, chatId);
 
     if (chatInfo && chatInfo.user_id) {
@@ -78,6 +95,9 @@ operatorComposer.command("reply", async (ctx) => {
   }
 });
 
+/**
+ * /end command - Ends a chat by ID.
+ */
 operatorComposer.command("end", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация");
@@ -107,6 +127,9 @@ operatorComposer.command("end", async (ctx) => {
   }
 });
 
+/**
+ * /ban command - Bans a user from using the bot.
+ */
 operatorComposer.command("ban", async (ctx) => {
   if (ctx.session?.type !== "operator") {
     await ctx.reply("Требуется авторизация");
