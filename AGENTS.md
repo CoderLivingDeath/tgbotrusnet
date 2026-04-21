@@ -155,7 +155,12 @@ async function fetchUser(id: string): Promise<User | null> {
 
 ### Testing
 
-Tests not yet configured. When added: `npm test`
+```bash
+npm test        # Run Jest tests
+npm run test:watch  # Run tests in watch mode
+```
+
+Note: Requires `@types/jest` package. Install with `npm i -D @types/jest` if missing.
 
 ### Comments
 
