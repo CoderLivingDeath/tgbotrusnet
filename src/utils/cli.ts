@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import minimist from 'minimist';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -24,43 +23,132 @@ const DEFAULTS: CLIArgs = {
 };
 
 export function parseArgs(args: string[] = process.argv.slice(2)): CLIArgs {
-  const parsed = minimist(args);
+  const hostIndex = args.indexOf('--host');
+  const portIndex = args.indexOf('--port');
+  const logPathIndex = args.indexOf('--log-path');
+  const logPrettyIndex = args.indexOf('--log-pretty');
+  const verboseIndex = args.findIndex((a) => a === '-v' || a === '--verbose');
+  const helpIndex = args.findIndex((a) => a === '-h' || a === '--help');
 
   return {
-    host: parsed.host ?? DEFAULTS.host,
-    port: Number(parsed.port ?? DEFAULTS.port),
-    logPath: parsed['log-path'] ?? DEFAULTS.logPath,
-    logPretty:
-      parsed['log-pretty'] !== undefined
-        ? parsed['log-pretty'] !== 'false'
-        : DEFAULTS.logPretty,
-    help: parsed.help ?? DEFAULTS.help,
-    verbose: parsed.verbose ?? parsed.v ?? DEFAULTS.verbose,
+    host: hostIndex >= 0 && args[hostIndex + 1] ? args[hostIndex + 1] : DEFAULTS.host,
+    port: portIndex >= 0 && args[portIndex + 1] ? Number(args[portIndex + 1]) : DEFAULTS.port,
+    logPath: logPathIndex >= 0 && args[logPathIndex + 1] ? args[logPathIndex + 1] : DEFAULTS.logPath,
+    logPretty: logPrettyIndex >= 0 
+      ? args[logPrettyIndex + 1] !== 'false' 
+      : DEFAULTS.logPretty,
+    help: helpIndex >= 0,
+    verbose: verboseIndex >= 0,
   };
 }
 
-export function showHelp(): void {
-  console.log(`
-Usage: bot [OPTIONS]
-       bot db:config [OPTIONS]
-       bot db:init [OPTIONS]
-       bot log:config [OPTIONS]
+export function createProgram(): Command {
+  const prog = new Command();
 
-Options:
-  --host <address>       Host to bind to (default: 0.0.0.0)
-  --port <number>        Port to bind to (default: 3000)
-  --log-path <path>      Log file path (default: no file logging)
-  --log-pretty <bool>   Enable pretty output (default: true)
-  -v, --verbose         Enable verbose logging (debug level)
-  --help                Show this help message
+  prog
+    .name('bot')
+    .description('Telegram bot CLI tools for configuration and setup')
+    .version('1.0.0')
+    .exitOverride()
+    .configureOutput({
+      writeErr: (str) => console.error(str),
+    })
+    .option('-h, --help', 'Display help')
+    .option('--host <address>', 'Host to bind to', DEFAULTS.host)
+    .option('--port <number>', 'Port to bind to', String(DEFAULTS.port))
+    .option('--log-path <path>', 'Log file path')
+    .option('--log-pretty <bool>', 'Enable pretty output')
+    .option('-v, --verbose', 'Enable verbose logging (debug level)');
 
-Database Commands:
-  bot db:config --url <url>      Set database URL
-  bot db:config --test           Test database connection
-  bot db:init                    Initialize database
-  bot db:init --force            Force reinitialize database
-  bot db:init --schema <file>    Use custom schema file
-`);
+  prog
+    .command('db:config')
+    .description('Configure database connection')
+    .option('-u, --url <url>', 'Database connection URL')
+    .option('-t, --test', 'Test database connection')
+    .action(async (options) => {
+      if (options.test) {
+        await testDbConnection();
+        return;
+      }
+
+      if (options.url) {
+        setEnvValue('DATABASE_URL', options.url);
+        console.log('Database URL updated successfully');
+        return;
+      }
+
+      console.log('Enter database URL (or press Enter to keep current):');
+      const currentUrl = getEnvValue('DATABASE_URL') || '';
+      console.log(`Current: ${currentUrl}`);
+
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      rl.question('New value: ', (answer: string) => {
+        rl.close();
+        if (answer.trim()) {
+          setEnvValue('DATABASE_URL', answer.trim());
+          console.log('Database URL updated successfully');
+        } else {
+          console.log('No change made');
+        }
+      });
+    });
+
+  prog
+    .command('db:init')
+    .description('Initialize database schema')
+    .option('-s, --schema <file>', 'Custom SQL schema file')
+    .option('-f, --force', 'Force reinitialize (drops existing tables)')
+    .option('-d, --database <name>', 'Database name (creates if not exists)')
+    .action(async (options) => {
+      await initializeDatabase(options.schema, options.force, options.database);
+    });
+
+  prog
+    .command('log:config')
+    .description('Configure logging settings')
+    .option('-l, --level <level>', 'Log level (debug, info, warn, error)')
+    .option('-p, --path <path>', 'Log file path')
+    .option('--pretty', 'Enable pretty print logging')
+    .option('--no-pretty', 'Disable pretty print logging')
+    .option('-s, --show', 'Show current logging configuration')
+    .action((options) => {
+      if (options.show) {
+        showLogConfig();
+        return;
+      }
+
+      if (options.level) {
+        const validLevels = ['debug', 'info', 'warn', 'error'];
+        if (!validLevels.includes(options.level.toLowerCase())) {
+          console.error(
+            `Invalid log level: ${options.level}. Valid: ${validLevels.join(', ')}`
+          );
+          process.exit(1);
+        }
+        setEnvValue('LOG_LEVEL', options.level.toLowerCase());
+        console.log(`Log level set to: ${options.level.toLowerCase()}`);
+      }
+
+      if (options.path) {
+        setEnvValue('LOG_PATH', options.path);
+        console.log(`Log path set to: ${options.path}`);
+      }
+
+      if (options.pretty !== undefined) {
+        setEnvValue('LOG_PRETTY', options.pretty ? 'true' : 'false');
+        console.log(`Pretty print ${options.pretty ? 'enabled' : 'disabled'}`);
+      }
+
+      if (!options.level && !options.path && options.pretty === undefined) {
+        interactiveLogConfig();
+      }
+    });
+
+  return prog;
 }
 
 const ENV_FILE = '.env';
@@ -155,95 +243,6 @@ function parseConnectionString(url: string): ParsedConnectionString {
   };
 }
 
-const program = new Command();
-
-program
-  .name('bot')
-  .description('Telegram bot CLI tools for configuration and setup')
-  .version('1.0.0');
-
-program
-  .command('db:config')
-  .description('Configure database connection')
-  .option('-u, --url <url>', 'Database connection URL')
-  .option('-t, --test', 'Test database connection')
-  .action(async (options) => {
-    if (options.test) {
-      await testDbConnection();
-      return;
-    }
-
-    if (options.url) {
-      setEnvValue('DATABASE_URL', options.url);
-      console.log('Database URL updated successfully');
-      return;
-    }
-
-    console.log('Enter database URL (or press Enter to keep current):');
-    const currentUrl = getEnvValue('DATABASE_URL') || '';
-    console.log(`Current: ${currentUrl}`);
-
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    rl.question('New value: ', (answer: string) => {
-      rl.close();
-      if (answer.trim()) {
-        setEnvValue('DATABASE_URL', answer.trim());
-        console.log('Database URL updated successfully');
-      } else {
-        console.log('No change made');
-      }
-    });
-  });
-
-program
-  .command('db:init')
-  .description('Initialize database schema')
-  .option('-s, --schema <file>', 'Custom SQL schema file')
-  .option('-f, --force', 'Force reinitialize (drops existing tables)')
-  .option('-d, --database <name>', 'Database name (creates if not exists)')
-  .action(async (options) => {
-    await initializeDatabase(options.schema, options.force, options.database);
-  });
-
-program
-  .command('log:config')
-  .description('Configure logging settings')
-  .option('-l, --level <level>', 'Log level (debug, info, warn, error)')
-  .option('--pretty', 'Enable pretty print logging')
-  .option('--no-pretty', 'Disable pretty print logging')
-  .option('-s, --show', 'Show current logging configuration')
-  .action((options) => {
-    if (options.show) {
-      showLogConfig();
-      return;
-    }
-
-    if (options.level) {
-      const validLevels = ['debug', 'info', 'warn', 'error'];
-      if (!validLevels.includes(options.level.toLowerCase())) {
-        console.error(
-          `Invalid log level: ${options.level}. Valid: ${validLevels.join(', ')}`
-        );
-        process.exit(1);
-      }
-      setEnvValue('LOG_LEVEL', options.level.toLowerCase());
-      console.log(`Log level set to: ${options.level.toLowerCase()}`);
-    }
-
-    if (options.pretty !== undefined) {
-      setEnvValue('LOG_PRETTY', options.pretty ? 'true' : 'false');
-      console.log(`Pretty print ${options.pretty ? 'enabled' : 'disabled'}`);
-    }
-
-    if (!options.level && options.pretty === undefined) {
-      interactiveLogConfig();
-    }
-  });
-
 async function testDbConnection(): Promise<void> {
   const url = getEnvValue('DATABASE_URL');
   if (!url) {
@@ -284,14 +283,15 @@ async function initializeDatabase(
   }
 
   const parsedUrl = parseConnectionString(baseUrl);
-  const targetDbName = dbName || getEnvValue('DATABASE_NAME') || parsedUrl.database || 'postgres';
+  const targetDbName =
+    dbName || getEnvValue('DATABASE_NAME') || parsedUrl.database || 'postgres';
 
   const adminUrl = `postgresql://${parsedUrl.user}:${parsedUrl.password}@${parsedUrl.host}:${parsedUrl.port}/postgres`;
   const adminPool = new Pool({ connectionString: adminUrl });
 
   interface DbError extends Error {
-  code?: string;
-}
+    code?: string;
+  }
 
   try {
     await adminPool.query(`CREATE DATABASE ${targetDbName}`);
@@ -432,21 +432,25 @@ async function initializeDatabase(
 function showLogConfig(): void {
   const level = getEnvValue('LOG_LEVEL') || 'info';
   const pretty = getEnvValue('LOG_PRETTY') || 'true';
+  const path = getEnvValue('LOG_PATH') || '(none)';
   console.log('Current logging configuration:');
   console.log(`  LOG_LEVEL: ${level}`);
+  console.log(`  LOG_PATH: ${path}`);
   console.log(`  LOG_PRETTY: ${pretty}`);
 }
 
 function interactiveLogConfig(): void {
   const currentLevel = getEnvValue('LOG_LEVEL') || 'info';
   const currentPretty = getEnvValue('LOG_PRETTY') || 'true';
+  const currentPath = getEnvValue('LOG_PATH') || '';
 
   console.log('Current settings:');
   console.log(`  Log level: ${currentLevel}`);
+  console.log(`  Log path: ${currentPath || '(none)'}`);
   console.log(`  Pretty print: ${currentPretty}`);
   console.log('\nAvailable log levels: debug, info, warn, error');
 
-const rl = readline.createInterface({
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
@@ -461,14 +465,24 @@ const rl = readline.createInterface({
       }
 
       rl.question(
-        'Enable pretty print? (y/n, or press Enter to keep current): ',
-        (prettyAnswer: string) => {
-          rl.close();
-          if (prettyAnswer.trim()) {
-            const pretty = prettyAnswer.toLowerCase().startsWith('y');
-            setEnvValue('LOG_PRETTY', pretty ? 'true' : 'false');
-            console.log(`Pretty print ${pretty ? 'enabled' : 'disabled'}`);
+        'Enter log file path (or press Enter to keep current): ',
+        (pathAnswer: string) => {
+          if (pathAnswer.trim()) {
+            setEnvValue('LOG_PATH', pathAnswer.trim());
+            console.log(`Log path set to: ${pathAnswer.trim()}`);
           }
+
+          rl.question(
+            'Enable pretty print? (y/n, or press Enter to keep current): ',
+            (prettyAnswer: string) => {
+              rl.close();
+              if (prettyAnswer.trim()) {
+                const pretty = prettyAnswer.toLowerCase().startsWith('y');
+                setEnvValue('LOG_PRETTY', pretty ? 'true' : 'false');
+                console.log(`Pretty print ${pretty ? 'enabled' : 'disabled'}`);
+              }
+            }
+          );
         }
       );
     }
@@ -479,11 +493,13 @@ const args = process.argv.slice(2);
 if (args.length === 0 || !args[0].includes(':')) {
   const parsed = parseArgs(args);
   if (parsed.help) {
-    showHelp();
+    const prog = createProgram();
+    prog.help();
     process.exit(0);
   }
 }
 
 if (require.main === module) {
-  program.parse(process.argv);
+  const prog = createProgram();
+  prog.parse(process.argv);
 }

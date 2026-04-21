@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Telegraf } from "telegraf";
-import { parseArgs, showHelp, type CLIArgs } from "./utils/cli.js";
+import { parseArgs, createProgram, type CLIArgs } from "./utils/cli.js";
 import { createLogger, type Logger } from "./services/logger.js";
 import { createDatabasePool, closeDatabasePool, type DatabasePool } from "./services/database.js";
 import { createContextMiddleware, type BotContext } from "./context/bot-context.js";
@@ -24,7 +24,7 @@ let bot: Telegraf<BotContext>;
 
 async function main(args: CLIArgs): Promise<void> {
   if (args.help) {
-    showHelp();
+    createProgram().help();
     process.exit(0);
   }
 

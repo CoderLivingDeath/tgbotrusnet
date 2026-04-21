@@ -1,4 +1,4 @@
-import { parseArgs, showHelp, type CLIArgs } from "../cli";
+import { parseArgs, createProgram, type CLIArgs } from "../cli";
 
 describe("CLI Parser", () => {
   const originalEnv = process.env;
@@ -43,5 +43,10 @@ describe("CLI Parser", () => {
   it("should detect help flag", () => {
     const args = parseArgs(["--help"]);
     expect(args.help).toBe(true);
+  });
+
+  it("should create program with correct name", () => {
+    const program = createProgram();
+    expect(program.name()).toBe("bot");
   });
 });

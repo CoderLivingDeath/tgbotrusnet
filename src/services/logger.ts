@@ -1,5 +1,6 @@
 import pino from "pino";
 import type { CLIArgs } from "../utils/cli.js";
+import { getEnvValue } from "../utils/config-helper.js";
 
 export type Logger = pino.Logger;
 
@@ -10,7 +11,10 @@ export function createLogger(config: CLIArgs): Logger {
     level = "debug";
   }
 
-  if (config.logPath) {
+  const logPath = config.logPath || getEnvValue('LOG_PATH') || undefined;
+  const logPretty = config.logPretty && process.platform !== 'win32';
+
+  if (logPath) {
     return pino({
       level,
       transport: {
@@ -19,13 +23,13 @@ export function createLogger(config: CLIArgs): Logger {
           colorize: false,
           translateTime: "SYS:standard",
           ignore: "pid,hostname",
-          destination: config.logPath,
+          destination: logPath,
         },
       },
     });
   }
 
-  if (config.logPretty && process.platform !== 'win32') {
+  if (logPretty) {
     return pino({
       level,
       transport: {
