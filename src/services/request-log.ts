@@ -40,7 +40,7 @@ export async function logRequest(
 
   try {
     await pool.query(
-      `INSERT INTO request_logs (user_id, message, handler, created_at) VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO request_logs (user_id, text, category, created_at) VALUES ($1, $2, $3, $4)`,
       [userId, message, handler, startedAt]
     );
 
@@ -61,7 +61,7 @@ export async function logRequest(
 export async function logResponse(
   pool: Pool,
   userId: number,
-  resultType: "auto_response" | "escalation" | "error",
+  resultType: "auto_response" | "escalation" | "callback_request" | "error",
   logger: Logger
 ): Promise<void> {
   const pending = pendingRequests.get(userId);

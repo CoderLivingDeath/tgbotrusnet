@@ -1,4 +1,4 @@
-import { createErrorHandlerMiddleware, createUnknownCommandMiddleware } from "../error-handler";
+import { createErrorHandlerMiddleware, createUnknownCommandMiddleware } from "../../src/middleware/error-handler";
 
 describe("Error Handler Middleware", () => {
   describe("createErrorHandlerMiddleware", () => {

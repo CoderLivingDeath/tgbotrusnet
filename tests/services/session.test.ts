@@ -1,4 +1,4 @@
-import { createToken, validateToken, revokeToken, getSession, createSession, updateSession, deleteSession } from "../session";
+import { createToken, validateToken, revokeToken, getSession, createSession, updateSession, deleteSession } from "../../src/services/session";
 
 describe("Session Service", () => {
   beforeEach(() => {

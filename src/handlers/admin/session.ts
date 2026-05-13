@@ -1,16 +1,14 @@
 import { Composer } from "telegraf";
+import type { MiddlewareFn } from "telegraf";
 import type { BotContext } from "../../context/bot-context";
-import { createAdminAuthMiddleware } from "../../middleware/auth";
-import { createToken } from "../../services/session";
+import { createToken, validateToken } from "../../services/session";
 import { loadConfig } from "../../config/index";
 import { addOperator, removeOperator, listOperators } from "../../services/chat";
 
 /**
  * Simple hash function for password hashing.
- * @param str - Input string to hash
- * @returns Hashed string with prefix
  */
-function simpleHash(str: string): string {
+export function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -20,144 +18,173 @@ function simpleHash(str: string): string {
   return "hash_" + Math.abs(hash).toString(36);
 }
 
-/**
- * Admin session handler composer.
- * Handles /admin login, /admin logout, /admin add-operator, /admin remove-operator, /admin list-operators commands.
- */
+// ── Pending operations (dialogue state) ──────────────────────────────
+
+interface PendingAction {
+  action: string;
+  step: number;
+  data: Record<string, unknown>;
+}
+
+const pendingOps = new Map<number, PendingAction>();
+
+function setPending(userId: number, action: string): void {
+  pendingOps.set(userId, { action, step: 0, data: {} });
+}
+
+function clearPending(userId: number): void {
+  pendingOps.delete(userId);
+}
+
+// ── Admin auth helper ────────────────────────────────────────────────
+
+async function requireAdminAuth(ctx: BotContext): Promise<boolean> {
+  const token = ctx.session?.token;
+  if (!token) {
+    await ctx.reply("Требуется авторизация. Используйте /admin_login");
+    return false;
+  }
+  const session = validateToken(token);
+  if (!session || session.type !== "admin") {
+    await ctx.reply("Неверный токен сессии. Используйте /admin_login");
+    return false;
+  }
+  ctx.session = { type: session.type, userId: session.user_id, token: session.token };
+  return true;
+}
+
+// ── Composer ─────────────────────────────────────────────────────────
+
 const adminComposer = new Composer<BotContext>();
 
-/**
- * /admin login command - Authenticates an admin.
- */
-adminComposer.command("admin login", async (ctx) => {
-  const args = ctx.message.text.split(" ").slice(2);
-  const password = args[0];
-
-  if (!password) {
-    await ctx.reply("Использование: /admin login <пароль>");
-    return;
-  }
-
-  const config = loadConfig();
-
-  if (password !== config.adminPassword) {
-    ctx.logger.warn({ userId: ctx.from?.id }, "Failed admin login attempt");
-    await ctx.reply("Неверный пароль");
-    return;
-  }
-
-  const token = createToken("admin", ctx.from!.id, config.sessionExpiryHours);
-
-  ctx.session = {
-    type: "admin",
-    userId: ctx.from!.id,
-    token,
-  };
-
-  ctx.logger.info({ userId: ctx.from?.id }, "Admin logged in");
-  await ctx.reply("Вы вошли как администратор");
+// /admin_login — asks for password
+adminComposer.command("admin_login", async (ctx) => {
+  setPending(ctx.from!.id, "admin_login");
+  await ctx.reply("Введите пароль администратора:");
 });
 
-/**
- * /admin logout command - Logs out the admin.
- */
-adminComposer.command("admin logout", createAdminAuthMiddleware(), async (ctx) => {
-  if (ctx.session?.token) {
-    ctx.session = undefined;
-    await ctx.reply("Вы вышли из системы");
-  }
+// /admin_logout
+adminComposer.command("admin_logout", async (ctx) => {
+  if (!(await requireAdminAuth(ctx))) return;
+  ctx.session = undefined;
+  await ctx.reply("Вы вышли из системы");
 });
 
-/**
- * /admin add-operator command - Adds a new operator (admin only).
- */
-adminComposer.command(
-  "admin add-operator",
-  createAdminAuthMiddleware(),
-  async (ctx) => {
-    const args = ctx.message.text.split(" ");
-    const userId = parseInt(args[2], 10);
-    const password = args[3];
+// /admin_add_operator — asks for login then password
+adminComposer.command("admin_add_operator", async (ctx) => {
+  if (!(await requireAdminAuth(ctx))) return;
+  setPending(ctx.from!.id, "admin_add_operator");
+  await ctx.reply("Введите логин нового оператора (буквы и цифры):");
+});
 
-    if (isNaN(userId) || !password) {
-      await ctx.reply("Использование: /admin add-operator <telegram_id> <пароль>");
+// /admin_remove_operator — asks for login
+adminComposer.command("admin_remove_operator", async (ctx) => {
+  if (!(await requireAdminAuth(ctx))) return;
+  setPending(ctx.from!.id, "admin_remove_operator");
+  await ctx.reply("Введите логин оператора для удаления:");
+});
+
+// /admin_list_operators — immediate
+adminComposer.command("admin_list_operators", async (ctx) => {
+  if (!(await requireAdminAuth(ctx))) return;
+  try {
+    const operators = await listOperators(ctx.db);
+    if (operators.length === 0) {
+      await ctx.reply("Нет операторов");
       return;
     }
+    const list = operators.map((o) =>
+      `• ${o.login} ${o.user_id ? `(ID: ${o.user_id})` : ""} ${o.is_active ? "🟢" : "🔴"}`
+    ).join("\n");
+    await ctx.reply(`Операторы:\n${list}`);
+  } catch (error) {
+    ctx.logger.error({ error }, "Failed to list operators");
+    await ctx.reply("Ошибка при получении списка");
+  }
+});
 
-    try {
-      const passwordHash = simpleHash(password);
+// ── Text handler — catches follow-up messages for pending ops ────────
 
-      const result = await addOperator(ctx.db, userId, passwordHash);
+export const adminTextHandler: MiddlewareFn<BotContext> = async (ctx, next) => {
+  if (!ctx.message || !("text" in ctx.message)) return next();
+  const text = ctx.message.text;
+  if (text.startsWith("/")) return next();
 
-      if (result) {
-        ctx.logger.info({ userId }, "Operator added by admin");
-        await ctx.reply(`Оператор добавлен: ${userId}`);
-      } else {
-        await ctx.reply("Оператор уже существует");
+  const userId = ctx.from?.id;
+  if (!userId) return next();
+
+  const pending = pendingOps.get(userId);
+  if (!pending) return next();
+
+  try {
+    // /admin_login — password
+    if (pending.action === "admin_login") {
+      const config = loadConfig();
+      if (text !== config.adminPassword) {
+        ctx.logger.warn({ userId }, "Failed admin login attempt");
+        await ctx.reply("Неверный пароль. Попробуйте ещё раз:");
+        return;
       }
-    } catch (error) {
-      ctx.logger.error({ error, userId }, "Failed to add operator");
-      await ctx.reply("Ошибка при добавлении оператора");
-    }
-  }
-);
-
-/**
- * /admin remove-operator command - Removes an operator (admin only).
- */
-adminComposer.command(
-  "admin remove-operator",
-  createAdminAuthMiddleware(),
-  async (ctx) => {
-    const args = ctx.message.text.split(" ");
-    const userId = parseInt(args[2], 10);
-
-    if (isNaN(userId)) {
-      await ctx.reply("Использование: /admin remove-operator <telegram_id>");
+      const token = createToken("admin", userId, config.sessionExpiryHours);
+      ctx.session = { type: "admin", userId, token };
+      clearPending(userId);
+      ctx.logger.info({ userId }, "Admin logged in");
+      await ctx.reply("Вы вошли как администратор");
       return;
     }
 
-    try {
-      const result = await removeOperator(ctx.db, userId);
+    // /admin_add_operator — step 1: login, step 2: password
+    if (pending.action === "admin_add_operator") {
+      if (pending.step === 0) {
+        const login = text.trim();
+        if (!/^[a-zA-Z0-9_]+$/.test(login)) {
+          await ctx.reply("Логин должен содержать только буквы, цифры и подчёркивания. Попробуйте ещё раз:");
+          return;
+        }
+        pending.data.login = login;
+        pending.step = 1;
+        await ctx.reply("Введите пароль для нового оператора:");
+        return;
+      }
+      if (pending.step === 1) {
+        const login = pending.data.login as string;
+        const passwordHash = simpleHash(text);
+        const result = await addOperator(ctx.db, login, passwordHash);
+        clearPending(userId);
+        if (result) {
+          ctx.logger.info({ login }, "Operator added by admin");
+          await ctx.reply(`Оператор "${login}" добавлен`);
+        } else {
+          await ctx.reply("Оператор с таким логином уже существует");
+        }
+        return;
+      }
+    }
 
+    // /admin_remove_operator — login
+    if (pending.action === "admin_remove_operator") {
+      const login = text.trim();
+      if (!/^[a-zA-Z0-9_]+$/.test(login)) {
+        await ctx.reply("Некорректный логин. Введите логин оператора:");
+        return;
+      }
+      const result = await removeOperator(ctx.db, login);
+      clearPending(userId);
       if (result) {
-        ctx.logger.info({ userId }, "Operator removed by admin");
-        await ctx.reply(`Оператор удалён: ${userId}`);
+        await ctx.reply(`Оператор "${login}" удалён`);
       } else {
         await ctx.reply("Оператор не найден");
       }
-    } catch (error) {
-      ctx.logger.error({ error, userId }, "Failed to remove operator");
-      await ctx.reply("Ошибка при удалении оператора");
+      return;
     }
+  } catch (error) {
+    ctx.logger.error({ error, userId }, "Error handling pending admin op");
+    clearPending(userId);
+    await ctx.reply("Произошла ошибка. Попробуйте снова.");
+    return;
   }
-);
 
-adminComposer.command(
-  "admin list-operators",
-  createAdminAuthMiddleware(),
-  async (ctx) => {
-    try {
-      const operators = await listOperators(ctx.db);
-
-      if (operators.length === 0) {
-        await ctx.reply("Нет операторов");
-        return;
-      }
-
-      const list = operators
-        .map(
-          (o) =>
-            `• ${o.user_id} ${o.is_active ? "🟢" : "🔴"}`
-        )
-        .join("\n");
-
-      await ctx.reply(`Операторы:\n${list}`);
-    } catch (error) {
-      ctx.logger.error({ error }, "Failed to list operators");
-      await ctx.reply("Ошибка при получении списка");
-    }
-  }
-);
+  return next();
+};
 
 export default adminComposer;

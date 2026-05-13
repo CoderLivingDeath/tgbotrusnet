@@ -21,7 +21,7 @@ export function createErrorHandlerMiddleware(): MiddlewareFn<BotContext> {
       } else if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("database")) {
         await ctx.reply("Ошибка базы данных. Обратитесь к администратору.");
       } else {
-        await ctx.reply(`Произошла ошибка. Попробуйте позже.\n\n${errorMessage.substring(0, 100)}`);
+        await ctx.reply("Произошла ошибка. Попробуйте позже.");
       }
     }
   };
@@ -29,6 +29,8 @@ export function createErrorHandlerMiddleware(): MiddlewareFn<BotContext> {
 
 /**
  * Creates middleware that handles unknown commands.
+ * Relies on position in middleware chain — if a command reaches this,
+ * it was not handled by any previous handler.
  * Replies with a help message for unrecognized commands.
  * @returns Telegraf middleware function
  */
@@ -48,25 +50,8 @@ export function createUnknownCommandMiddleware(): MiddlewareFn<BotContext> {
       return;
     }
 
-    const knownCommands = [
-      "/start",
-      "/menu",
-      "/search",
-      "/support",
-      "/end",
-      "/admin",
-      "/operator",
-    ];
-
-    const isKnown = knownCommands.some((cmd) => command.startsWith(cmd));
-
-    if (!isKnown) {
-      await ctx.reply(
-        "Неизвестная команда. Используйте /start для начала работы."
-      );
-      return;
-    }
-
-    await next();
+    await ctx.reply(
+      "Неизвестная команда. Используйте /start для начала работы."
+    );
   };
 }

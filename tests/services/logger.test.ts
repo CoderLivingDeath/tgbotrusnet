@@ -1,6 +1,6 @@
-import { getEnvValue } from "../../utils/config-helper";
+import { getEnvValue } from "../../src/utils/config-helper";
 
-jest.mock("../../utils/config-helper", () => ({
+jest.mock("../../src/utils/config-helper", () => ({
   getEnvValue: (key: string): string | undefined => {
     if (key === "LOG_LEVEL") return process.env.LOG_LEVEL;
     if (key === "LOG_CONSOLE") return "true";
@@ -10,7 +10,7 @@ jest.mock("../../utils/config-helper", () => ({
   },
 }));
 
-import { createLogger } from "../logger";
+import { createLogger } from "../../src/services/logger";
 
 describe("Logger Service", () => {
   it("should create a logger with default configuration", async () => {
@@ -21,6 +21,7 @@ describe("Logger Service", () => {
       logPretty: false,
       help: false,
       verbose: false,
+      debug: false,
     });
 
     expect(logger).toBeDefined();
@@ -38,6 +39,7 @@ describe("Logger Service", () => {
       logPretty: false,
       help: false,
       verbose: false,
+      debug: false,
     });
 
     expect(logger.level).toBe("debug");
@@ -57,6 +59,7 @@ describe("Logger Service", () => {
       logPretty: false,
       help: false,
       verbose: true,
+      debug: false,
     });
 
     expect(logger.level).toBe("debug");

@@ -4,7 +4,7 @@ import type { Logger } from "../services/logger";
 const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS faq_categories (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL UNIQUE,
   sort_order INTEGER DEFAULT 0,
   is_default BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -20,9 +20,10 @@ CREATE TABLE IF NOT EXISTS faqs (
 
 CREATE TABLE IF NOT EXISTS operators (
   id SERIAL PRIMARY KEY,
-  user_id BIGINT UNIQUE NOT NULL,
+  login VARCHAR(100) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
+  user_id BIGINT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -58,6 +59,17 @@ CREATE TABLE IF NOT EXISTS banned_users (
   banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS callback_requests (
+  id SERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  operator_id INTEGER REFERENCES operators(id) ON DELETE SET NULL,
+  message TEXT NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending',
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS request_logs (
   id SERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL,
@@ -75,7 +87,7 @@ INSERT INTO faq_categories (name, sort_order, is_default) VALUES
   ('Статус заявки', 2, TRUE),
   ('Общие вопросы', 3, TRUE),
   ('Связаться с оператором', 4, TRUE)
-ON CONFLICT DO NOTHING
+ON CONFLICT (name) DO NOTHING
 `;
 
 const INSERT_SAMPLE_FAQS = `
@@ -109,6 +121,9 @@ export async function initializeSchema(pool: Pool, logger: Logger): Promise<void
     
     if (parseInt(tableCheck.rows[0].count, 10) > 0) {
       logger.info("Database already initialized, checking for FAQs...");
+
+      // Ensure default categories exist (in case they were deleted or missing)
+      await pool.query(INSERT_DEFAULT_CATEGORIES);
 
       const faqCheck = await pool.query(`SELECT COUNT(*) as count FROM faqs`);
       if (parseInt(faqCheck.rows[0].count, 10) === 0) {

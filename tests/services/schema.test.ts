@@ -1,4 +1,4 @@
-import { validateUserData, validateChatData, validateFaqData } from "../schema";
+import { validateUserData, validateChatData, validateFaqData } from "../../src/services/schema";
 
 describe("Schema Validation", () => {
   describe("validateUserData", () => {

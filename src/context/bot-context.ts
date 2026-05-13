@@ -9,11 +9,7 @@ export interface BotContext extends Context {
     type: 'admin' | 'operator';
     userId: number;
     token: string;
-  };
-  activeChat?: {
-    chatId: number;
-    operatorId: number | null;
-    status: 'waiting' | 'active' | 'closed';
+    login?: string;
   };
 }
 

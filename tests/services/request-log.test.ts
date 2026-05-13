@@ -1,4 +1,4 @@
-import { logRequest, logResponse, getStatistics } from "../request-log";
+import { logRequest, logResponse, getStatistics } from "../../src/services/request-log";
 
 describe("Request Log Service", () => {
   describe("logRequest", () => {

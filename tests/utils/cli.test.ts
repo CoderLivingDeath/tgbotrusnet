@@ -1,4 +1,4 @@
-import { parseArgs, createProgram, type CLIArgs } from "../cli";
+import { parseArgs, createProgram, type CLIArgs } from "../../src/utils/cli";
 
 describe("CLI Parser", () => {
   const originalEnv = process.env;

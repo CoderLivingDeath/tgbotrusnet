@@ -1,4 +1,4 @@
-import { searchFAQs, getFAQById, searchFaqs } from "../../services/faq";
+import { searchFAQs, getFAQById, searchFaqs } from "../../src/services/faq";
 
 describe("FAQ Service", () => {
   describe("searchFAQs", () => {

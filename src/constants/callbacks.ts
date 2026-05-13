@@ -1,12 +1,11 @@
 export const CB = {
   CAT: 'cat_',
   FAQ: 'faq_',
-  CHAT: 'chat_',
   MENU: 'menu',
   SCENE_CAT: 'scene_cat_',
   SCENE_FAQ: 'scene_faq_',
   SCENE_MENU: 'scene_menu',
-  OP_CHAT: 'op_chat_',
+
 } as const;
 
 export const COMMANDS = {

@@ -1,10 +1,10 @@
 const config = {
   preset: "ts-jest",
   testEnvironment: "node",
-  roots: ["<rootDir>/src"],
-  testMatch: ["**/__tests__/**/*.test.ts"],
+  roots: ["<rootDir>/tests"],
+  testMatch: ["**/*.test.ts"],
   moduleFileExtensions: ["ts", "js", "json"],
-  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.test.ts", "!src/**/__tests__/**"],
+  collectCoverageFrom: ["src/**/*.ts", "!tests/**/*.ts"],
   transform: {
     "^.+\\.ts$": ["ts-jest", { tsconfig: "tsconfig.test.json" }],
   },

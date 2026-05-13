@@ -10,14 +10,9 @@ import { getStatistics } from "../../services/request-log";
 const adminComposer = new Composer<BotContext>();
 
 /**
- * Admin authorization middleware for all commands.
- */
-adminComposer.use(createAdminAuthMiddleware());
-
-/**
  * /stats command - Shows detailed request statistics.
  */
-adminComposer.command("stats", async (ctx) => {
+adminComposer.command("stats", createAdminAuthMiddleware(), async (ctx) => {
   const args = ctx.message.text.split(" ");
   const days = parseInt(args[1], 10) || 7;
 
