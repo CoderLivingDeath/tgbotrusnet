@@ -199,9 +199,3 @@ src/
     ├── cli.ts                # CLI arguments + db:init команда
     └── config-helper.ts      # .env reader/writer
 ```
-
----
-
-## License
-
-ISC
